@@ -1,0 +1,10 @@
+installCRDs: true
+
+webhook:
+  enabled: true
+
+certController:
+  enabled: true
+
+leaderElector:
+  enabled: true

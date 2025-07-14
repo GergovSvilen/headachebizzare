@@ -1,0 +1,9 @@
+apiVersion: v2
+name: ext-secrets
+description: My app chart including external-secrets
+version: 0.1.0
+
+dependencies:
+  - name: external-secrets
+    version: 0.9.19
+    repository: https://charts.external-secrets.io
