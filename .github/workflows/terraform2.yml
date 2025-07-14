@@ -1,130 +1,130 @@
-name: 'Terraform Plan/Apply'
+# name: 'Terraform Plan/Apply'
 
-on:
-  push:
-    branches:
-    - main
-    paths:
-      - infra/**
-  pull_request:
-    branches:
-    - main
+# on:
+#   push:
+#     branches:
+#     - main
+#     paths:
+#       - infra/**
+#   pull_request:
+#     branches:
+#     - main
     
-  workflow_dispatch:
+#   workflow_dispatch:
     
 
-#Special permissions required for OIDC authentication
-permissions:
-  id-token: write
-  contents: read
-  pull-requests: write
+# #Special permissions required for OIDC authentication
+# permissions:
+#   id-token: write
+#   contents: read
+#   pull-requests: write
 
-#These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
-env:
-  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-  ARM_USE_OIDC: true
+# #These environment variables are used by the terraform azure provider to setup OIDD authenticate. 
+# env:
+#   ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+#   ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+#   ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+#   ARM_USE_OIDC: true
 
-jobs:
-  terraform-plan:
-    name: 'Terraform Plan'
-    runs-on: ubuntu-latest
-    env:
-      #this is needed since we are running terraform with read-only permissions
-      ARM_SKIP_PROVIDER_REGISTRATION: true
-    outputs:
-      tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
+# jobs:
+#   terraform-plan:
+#     name: 'Terraform Plan'
+#     runs-on: ubuntu-latest
+#     env:
+#       #this is needed since we are running terraform with read-only permissions
+#       ARM_SKIP_PROVIDER_REGISTRATION: true
+#     outputs:
+#       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
 
-    steps:
-    # Checkout the repository to the GitHub Actions runner
-    - name: Checkout
-      uses: actions/checkout@v4
+#     steps:
+#     # Checkout the repository to the GitHub Actions runner
+#     - name: Checkout
+#       uses: actions/checkout@v4
 
-    - name: List files
-      run: |
-            pwd
-            ls
+#     - name: List files
+#       run: |
+#             pwd
+#             ls
 
-    - name: 'Az CLI login'
-      uses: azure/login@v2
-      with:
-        client-id: ${{ env.ARM_CLIENT_ID }}
-        tenant-id: ${{ env.ARM_TENANT_ID }}
-        subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
-    # Install the latest version of the Terraform CLI
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_wrapper: false
+#     - name: 'Az CLI login'
+#       uses: azure/login@v2
+#       with:
+#         client-id: ${{ env.ARM_CLIENT_ID }}
+#         tenant-id: ${{ env.ARM_TENANT_ID }}
+#         subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+#     # Install the latest version of the Terraform CLI
+#     - name: Setup Terraform
+#       uses: hashicorp/setup-terraform@v3
+#       with:
+#         terraform_wrapper: false
 
-    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
-    - name: Terraform Init
-      run: |
-        cd infra
-        pwd
-        cat main.tf
-        terraform init
+#     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+#     - name: Terraform Init
+#       run: |
+#         cd infra
+#         pwd
+#         cat main.tf
+#         terraform init
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    # Will fail the build if not
-    - name: Terraform Format
-      run: terraform fmt -check
+#     # Checks that all Terraform configuration files adhere to a canonical format
+#     # Will fail the build if not
+#     - name: Terraform Format
+#       run: terraform fmt -check
 
-    # Generates an execution plan for Terraform
-    # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
-    - name: Terraform Plan
-      id: tf-plan
-      run: |
-        cd infra
-        pwd
-        export exitcode=0
-        terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
+#     # Generates an execution plan for Terraform
+#     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
+#     - name: Terraform Plan
+#       id: tf-plan
+#       run: |
+#         cd infra
+#         pwd
+#         export exitcode=0
+#         terraform plan -detailed-exitcode -no-color -out tfplan || export exitcode=$?
 
-        echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+#         echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
         
-        if [ $exitcode -eq 1 ]; then
-          echo Terraform Plan Failed!
-          exit 1
-        else 
-          exit 0
-        fi
+#         if [ $exitcode -eq 1 ]; then
+#           echo Terraform Plan Failed!
+#           exit 1
+#         else 
+#           exit 0
+#         fi
         
     
                 
-  terraform-apply:
-    name: 'Terraform Apply'
-    runs-on: ubuntu-latest
-    needs: terraform-plan  # THIS IS THE KEY FIX - wait for plan to complete
-    if: github.ref == 'refs/heads/main' && needs.terraform-plan.outputs.tfplanExitCode == '2'  # Only apply on main branch and if there are changes
+#   terraform-apply:
+#     name: 'Terraform Apply'
+#     runs-on: ubuntu-latest
+#     needs: terraform-plan  # THIS IS THE KEY FIX - wait for plan to complete
+#     if: github.ref == 'refs/heads/main' && needs.terraform-plan.outputs.tfplanExitCode == '2'  # Only apply on main branch and if there are changes
     
-    steps:
-    # Checkout the repository to the GitHub Actions runner
-    - name: Checkout
-      uses: actions/checkout@v4
+#     steps:
+#     # Checkout the repository to the GitHub Actions runner
+#     - name: Checkout
+#       uses: actions/checkout@v4
 
-    # ADD AZURE LOGIN (same as plan job)
-    - name: 'Az CLI login'
-      uses: azure/login@v2
-      with:
-        client-id: ${{ env.ARM_CLIENT_ID }}
-        tenant-id: ${{ env.ARM_TENANT_ID }}
-        subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
+#     # ADD AZURE LOGIN (same as plan job)
+#     - name: 'Az CLI login'
+#       uses: azure/login@v2
+#       with:
+#         client-id: ${{ env.ARM_CLIENT_ID }}
+#         tenant-id: ${{ env.ARM_TENANT_ID }}
+#         subscription-id: ${{ env.ARM_SUBSCRIPTION_ID }}
 
-    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_wrapper: false
+#     # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+#     - name: Setup Terraform
+#       uses: hashicorp/setup-terraform@v3
+#       with:
+#         terraform_wrapper: false
 
-    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
-    - name: Terraform Init
-      run: |
-        cd infra
-        terraform init
+#     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+#     - name: Terraform Init
+#       run: |
+#         cd infra
+#         terraform init
 
-    # Terraform Apply
-    - name: Terraform Apply
-      run: |
-        cd infra
-        terraform apply -auto-approve
+#     # Terraform Apply
+#     - name: Terraform Apply
+#       run: |
+#         cd infra
+#         terraform apply -auto-approve
